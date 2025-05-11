@@ -28,25 +28,25 @@ A compact, open-source Wi-Fi penetration testing tool powered by the ESP32. This
 
 # Usage Instructions for ESP32 Project
 
-## 1. Build and Flash the Project onto ESP32
+### 1. Build and Flash the Project onto ESP32
 - Build the project as per the instructions in the repository.
 - Flash the compiled code onto the ESP32 (DevKit or module).
 
-## 2. Power On ESP32
+### 2. Power On ESP32
 - Power the ESP32 device to start the process.
 
-## 3. Management AP Initialization
+### 3. Management AP Initialization
 - The Management AP will start automatically after boot.
 
-## 4. Connect to the Management AP
+### 4. Connect to the Management AP
 - **SSID:** ManagementAP
 - **Password:** mgmtadmin
 
-## 5. Access the Web Client
+### 5. Access the Web Client
 - Open a browser and visit: `http://192.168.4.1`
 - You should see the web client interface to configure and control the tool.
 
-## 6. Configure and Control the Tool
+### 6. Configure and Control the Tool
 - Use the web client to configure and manage the tool as per your requirements.
 
 
@@ -56,7 +56,7 @@ A compact, open-source Wi-Fi penetration testing tool powered by the ESP32. This
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/esp32-wifi-pen-tool.git
+[git clone https://github.com/your-username/esp32-wifi-pen-tool.git](https://github.com/Hardpansara/esp32-wifi-penetration-tool)
 ```
 
 ### 2. Build with ESP-IDF
@@ -80,3 +80,18 @@ esptool.py -p /dev/ttyS5 -b 115200 --after hard_reset write_flash --flash_mode d
 
 On Windows you can use official Flash Download Tool.
 
+---
+Contributing
+Feel free to contribute. Don't hestitate to refactor current code base. Please stick to Doxygen notation when commenting new functions and files. This project is mainly build for educational and demonstration purposes, so verbose documentation is welcome.
+
+Disclaimer
+This project demonstrates vulnerabilities of Wi-Fi networks and its underlaying 802.11 standard and how ESP32 platform can be utilised to attack on those vulnerable spots. Use responsibly against networks you have permission to attack on.
+
+---
+
+# Credits & Author
+
+- **Developed by:** [risinek](https://github.com/risinek/esp32-wifi-penetration-tool)
+- **Modified by:** Hard Pansara
+- **GitHub:** [Hardpansara](https://github.com/Hardpansara)
+- **LinkedIn:** [Hard Pansara](http://linkedin.com/in/hard-pansara-22582a288)
