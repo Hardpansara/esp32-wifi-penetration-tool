@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>ESP32 WiFi Penetration Tool</title>
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #1976D2;
+            --success-color: #4CAF50;
+            --error-color: #F44336;
+            --warning-color: #FFC107;
+            --text-color: #333;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background-color: var(--card-bg);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+
+        tr.selected {
+            background-color: #e3f2fd;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .error {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .warning {
+            background-color: var(--warning-color);
+            color: black;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body onLoad="getStatus()">
+    <div class="container">
+        <h1>ESP32 WiFi Penetration Tool</h1>
+        <div id="errors" class="status"></div>
+        <div id="loading" class="status">Loading... Please wait</div>
+    </div>
+
+    <div id="ready" class="container" style="display: none;">
+        <h2>Attack Configuration</h2>
+        <form onSubmit="runAttack(); return false;">
+            <div class="form-group">
+                <h3>Select Target</h3>
+                <div class="table-container">
+                    <table id="ap-list">
+                        <thead>
+                            <tr>
+                                <th>SSID</th>
+                                <th>BSSID</th>
+                                <th>Signal Strength</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <button type="button" onClick="refreshAps()">Refresh Access Points</button>
+            </div>
+
+            <div class="form-group">
+                <h3>Attack Settings</h3>
+                <div class="form-group">
+                    <label for="attack_type">Attack Type:</label>
+                    <select id="attack_type" onChange="updateConfigurableFields(this)" required>
+                        <option value="0" disabled>Passive Scan</option>
+                        <option value="1">Handshake Capture</option>
+                        <option value="2" selected>PMKID Capture</option>
+                        <option value="3">Denial of Service</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="attack_method">Attack Method:</label>
+                    <select id="attack_method" required disabled>
+                        <option value="" selected disabled hidden>Select Attack Type First</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="attack_timeout">Attack Duration (seconds):</label>
+                    <input type="number" min="0" max="255" id="attack_timeout" value="30" required/>
+                </div>
+
+                <button type="submit">Start Attack</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="running" class="container" style="display: none;">
+        <h2>Attack in Progress</h2>
+        <div class="progress-bar">
+            <div class="progress" id="progress-bar"></div>
+        </div>
+        <p>Time elapsed: <span id="running-progress">0/0s</span></p>
+    </div>
+
+    <div id="result" class="container" style="display: none;">
+        <h2>Attack Results</h2>
+        <div id="result-meta" class="status"></div>
+        <div id="result-content"></div>
+        <button type="button" onClick="resetAttack()">Start New Attack</button>
+    </div>
+
+    <script>
+    var AttackStateEnum = { READY: 0, RUNNING: 1, FINISHED: 2, TIMEOUT: 3};
+    var AttackTypeEnum = { ATTACK_TYPE_PASSIVE: 0, ATTACK_TYPE_HANDSHAKE: 1, ATTACK_TYPE_PMKID: 2, ATTACK_TYPE_DOS: 3};
+    var selectedApElement = -1;
+    var poll;
+    var poll_interval = 1000;
+    var running_poll;
+    var running_poll_interval = 1000;
+    var attack_timeout = 0;
+    var time_elapsed = 0;
+    var defaultResultContent = document.getElementById("result").innerHTML;
+    var defaultAttackMethods = document.getElementById("attack_method").outerHTML;
+
+    function updateProgressBar() {
+        const progress = (time_elapsed / attack_timeout) * 100;
+        document.getElementById("progress-bar").style.width = `${progress}%`;
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById("errors");
+        errorDiv.innerHTML = message;
+        errorDiv.className = "status error";
+        errorDiv.style.display = "block";
+    }
+
+    function clearError() {
+        const errorDiv = document.getElementById("errors");
+        errorDiv.innerHTML = "";
+        errorDiv.className = "status";
+        errorDiv.style.display = "none";
+    }
+
+    function getStatus() {
+        var oReq = new XMLHttpRequest();
+        oReq.onload = function() {
+            var arrayBuffer = oReq.response;
+            if(arrayBuffer) {
+                var attack_state = parseInt(new Uint8Array(arrayBuffer, 0, 1));
+                var attack_type = parseInt(new Uint8Array(arrayBuffer, 1, 1));
+                var attack_content_size = parseInt(new Uint16Array(arrayBuffer, 2, 1));
+                var attack_content = new Uint8Array(arrayBuffer, 4);
+                
+                hideAllSections();
+                clearError();
+                
+                switch(attack_state) {
+                    case AttackStateEnum.READY:
+                        showAttackConfig();
+                        break;
+                    case AttackStateEnum.RUNNING:
+                        showRunning();
+                        setTimeout(getStatus, poll_interval);
+                        break;
+                    case AttackStateEnum.FINISHED:
+                        showResult("Attack Completed Successfully", attack_type, attack_content_size, attack_content);
+                        break;
+                    case AttackStateEnum.TIMEOUT:
+                        showResult("Attack Timed Out", attack_type, attack_content_size, attack_content);
+                        break;
+                    default:
+                        showError("Error: Unknown attack state");
+                }
+            }
+        };
+        
+        oReq.onerror = function() {
+            showError("Cannot reach ESP32. Please check your connection to the management AP.");
+            setTimeout(getStatus, poll_interval);
+        };
+        
+        oReq.ontimeout = function() {
+            showError("Connection timeout. Retrying...");
+            setTimeout(getStatus, poll_interval);
+        };
+        
+        oReq.open("GET", "http://192.168.4.1/status", true);
+        oReq.responseType = "arraybuffer";
+        oReq.send();
+    }
+
+    function hideAllSections() {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("ready").style.display = "none";
+        document.getElementById("running").style.display = "none";
+        document.getElementById("result").style.display = "none";
+    }
+
+    function showRunning() {
+        document.getElementById("running").style.display = "block";
+        updateProgressBar();
+    }
+
+    function countProgress() {
+        if(time_elapsed >= attack_timeout) {
+            showError("Please reconnect to management AP");
+            clearInterval(running_poll);
+            return;
+        }
+        document.getElementById("running-progress").innerHTML = `${time_elapsed}/${attack_timeout}s`;
+        time_elapsed++;
+        updateProgressBar();
+    }
+
+    function showAttackConfig() {
+        document.getElementById("ready").style.display = "block";
+        refreshAps();
+    }
+
+    function showResult(status, attack_type, attack_content_size, attack_content) {
+        document.getElementById("result").style.display = "block";
+        document.getElementById("result-meta").innerHTML = `<div class="status success">${status}</div>`;
+        
+        let type = "Unknown Attack Type";
+        switch(attack_type) {
+            case AttackTypeEnum.ATTACK_TYPE_PASSIVE:
+                type = "Passive Scan";
+                break;
+            case AttackTypeEnum.ATTACK_TYPE_HANDSHAKE:
+                type = "Handshake Capture";
+                resultHandshake(attack_content, attack_content_size);
+                break;
+            case AttackTypeEnum.ATTACK_TYPE_PMKID:
+                type = "PMKID Capture";
+                resultPmkid(attack_content, attack_content_size);
+                break;
+            case AttackTypeEnum.ATTACK_TYPE_DOS:
+                type = "Denial of Service";
+                break;
+        }
+        
+        document.getElementById("result-meta").innerHTML += `<div class="status">Attack Type: ${type}</div>`;
+    }
+
+    function refreshAps() {
+        document.getElementById("ap-list").querySelector("tbody").innerHTML = "<tr><td colspan='3'>Loading access points...</td></tr>";
+        
+        var oReq = new XMLHttpRequest();
+        oReq.onload = function() {
+            var tbody = document.getElementById("ap-list").querySelector("tbody");
+            tbody.innerHTML = "";
+            
+            var arrayBuffer = oReq.response;
+            if(arrayBuffer) {
+                var byteArray = new Uint8Array(arrayBuffer);
+                for(let i = 0; i < byteArray.byteLength; i = i + 40) {
+                    var tr = document.createElement('tr');
+                    tr.setAttribute("onClick", "selectAp(this)");
+                    
+                    var ssid = new TextDecoder("utf-8").decode(byteArray.subarray(i, i + 32)).trim();
+                    var bssid = Array.from(byteArray.subarray(i + 33, i + 39))
+                        .map(b => b.toString(16).padStart(2, '0'))
+                        .join(':');
+                    var rssi = byteArray[i + 39] - 255;
+                    
+                    tr.innerHTML = `
+                        <td>${ssid}</td>
+                        <td>${bssid}</td>
+                        <td>${rssi} dBm</td>
+                    `;
+                    
+                    tbody.appendChild(tr);
+                }
+            }
+        };
+        
+        oReq.onerror = function() {
+            document.getElementById("ap-list").querySelector("tbody").innerHTML = 
+                "<tr><td colspan='3' class='error'>Error loading access points</td></tr>";
+        };
+        
+        oReq.open("GET", "http://192.168.4.1/ap-list", true);
+        oReq.responseType = "arraybuffer";
+        oReq.send();
+    }
+
+    function selectAp(el) {
+        if(selectedApElement) {
+            selectedApElement.classList.remove("selected");
+        }
+        selectedApElement = el;
+        el.classList.add("selected");
+    }
+
+    function runAttack() {
+        if(!selectedApElement) {
+            showError("Please select an access point first");
+            return;
+        }
+        
+        hideAllSections();
+        showRunning();
+        
+        var arrayBuffer = new ArrayBuffer(4);
+        var uint8Array = new Uint8Array(arrayBuffer);
+        uint8Array[0] = parseInt(selectedApElement.rowIndex - 1); // Adjust for header row
+        uint8Array[1] = parseInt(document.getElementById("attack_type").value);
+        uint8Array[2] = parseInt(document.getElementById("attack_method").value);
+        uint8Array[3] = parseInt(document.getElementById("attack_timeout").value);
+        
+        var oReq = new XMLHttpRequest();
+        oReq.open("POST", "http://192.168.4.1/run-attack", true);
+        oReq.send(arrayBuffer);
+        
+        attack_timeout = parseInt(document.getElementById("attack_timeout").value);
+        time_elapsed = 0;
+        running_poll = setInterval(countProgress, running_poll_interval);
+        
+        getStatus();
+    }
+
+    function resetAttack() {
+        hideAllSections();
+        showAttackConfig();
+        
+        var oReq = new XMLHttpRequest();
+        oReq.open("HEAD", "http://192.168.4.1/reset", true);
+        oReq.send();
+    }
+
+    function resultPmkid(attack_content, attack_content_size){
+        var mac_ap = "";
+        var mac_sta = "";
+        var ssid = "";
+        var ssid_text = "";
+        var pmkid = "";
+        var index = 0;
+        for(let i = 0; i < 6; i = i + 1) {
+            mac_ap += uint8ToHex(attack_content[index + i]);
+        }
+        index = index + 6;
+        for(let i = 0; i < 6; i = i + 1) {
+            mac_sta += uint8ToHex(attack_content[index + i]);
+        }
+        index = index + 6;
+        for(let i = 0; i < attack_content[index]; i = i + 1) {
+            ssid += uint8ToHex(attack_content[index + 1 + i]);
+            ssid_text += String.fromCharCode(attack_content[index + 1 + i]);
+        }
+        index = index + attack_content[index] + 1;
+        var pmkid_cnt = 0;
+        for(let i = 0; i < attack_content_size - index; i = i + 1) {
+            if((i % 16) == 0){
+                pmkid += "<br>";
+                pmkid += "</code>PMKID #" + pmkid_cnt + ": <code>";
+                pmkid_cnt += 1;
+            }
+            pmkid += uint8ToHex(attack_content[index + i]);
+        }
+        document.getElementById("result-content").innerHTML = "";
+        document.getElementById("result-content").innerHTML += "MAC AP: <code>" + mac_ap + "</code><br>";
+        document.getElementById("result-content").innerHTML += "MAC STA: <code>" + mac_sta + "</code><br>";
+        document.getElementById("result-content").innerHTML += "(E)SSID: <code>" + ssid + "</code> (" + ssid_text + ")";
+        document.getElementById("result-content").innerHTML += "<code>" + pmkid + "</code><br>";
+        document.getElementById("result-content").innerHTML += "<br>Hashcat ready format:"
+        document.getElementById("result-content").innerHTML += "<code>" + pmkid + "*" + mac_ap + "*" + mac_sta  + "*" + ssid  + "</code><br>";
+    }
+    function resultHandshake(attack_content, attack_content_size){
+        document.getElementById("result-content").innerHTML = "";
+        var pcap_link = document.createElement("a");
+        pcap_link.setAttribute("href", "capture.pcap");
+        pcap_link.text = "Download PCAP file";
+        var hccapx_link = document.createElement("a");
+        hccapx_link.setAttribute("href", "capture.hccapx");
+        hccapx_link.text = "Download HCCAPX file";
+        document.getElementById("result-content").innerHTML += "<p>" + pcap_link.outerHTML + "</p>";
+        document.getElementById("result-content").innerHTML += "<p>" + hccapx_link.outerHTML + "</p>";
+        var handshakes = "";
+        for(let i = 0; i < attack_content_size; i = i + 1) {
+            handshakes += uint8ToHex(attack_content[i]);
+            if(i % 50 == 49) {
+                handshakes += "\n";
+            }
+        }
+        document.getElementById("result-content").innerHTML += "<pre><code>" + handshakes + "</code></pre>";
+    }
+    function uint8ToHex(uint8){
+        return ("00" + uint8.toString(16)).slice(-2);
+    }
+    function updateConfigurableFields(el){
+        document.getElementById("attack_method").outerHTML = defaultAttackMethods;
+        switch(parseInt(el.value)){
+            case AttackTypeEnum.ATTACK_TYPE_PASSIVE:
+                console.log("PASSIVE configuration");
+                break;
+            case AttackTypeEnum.ATTACK_TYPE_HANDSHAKE:
+                console.log("HANDSHAKE configuration");
+                document.getElementById("attack_timeout").value = 60;
+                setAttackMethods(["DEAUTH_ROGUE_AP (PASSIVE)", "DEAUTH_BROADCAST (ACTIVE)", "CAPTURE_ONLY (PASSIVE)"]);
+                break;
+            case AttackTypeEnum.ATTACK_TYPE_PMKID:
+                console.log("PMKID configuration");
+                document.getElementById("attack_timeout").value = 5;
+                break;
+            case AttackTypeEnum.ATTACK_TYPE_DOS:
+                console.log("DOS configuration");
+                document.getElementById("attack_timeout").value = 120;
+                setAttackMethods(["DEAUTH_ROGUE_AP (PASSIVE)", "DEAUTH_BROADCAST (ACTIVE)", "DEAUTH_COMBINE_ALL"]);
+                break;
+            default:
+                console.log("Unknown attack type");
+                break;
+        }
+    }
+    function setAttackMethods(attackMethodsArray){
+        document.getElementById("attack_method").removeAttribute("disabled");
+        attackMethodsArray.forEach(function(method, index){
+            let option = document.createElement("option");
+            option.value = index;
+            option.text = method;
+            option.selected = true;
+            document.getElementById("attack_method").appendChild(option);
+        });
+    }
+    </script>
+</body>
+</html>
