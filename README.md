@@ -49,14 +49,19 @@ A compact, open-source Wi-Fi penetration testing tool powered by the ESP32. This
 ### 6. Configure and Control the Tool
 - Use the web client to configure and manage the tool as per your requirements.
 
+---
+<div align="center">
 
+<img src="images/image.jpeg" alt="Home" width="300"/>
+
+</div>
 ---
 
 ## Installation
 
 ### 1. Clone the Repository
 ```bash
- https://github.com/Hardpansara/esp32-wifi-penetration-tool
+ git clone https://github.com/Hardpansara/esp32-wifi-penetration-tool.git
 
 ```
 
